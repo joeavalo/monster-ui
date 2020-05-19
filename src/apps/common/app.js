@@ -8,6 +8,7 @@ define(function(require) {
 		'buyNumbers',
 		'callerId',
 		'carrierSelector',
+		'catItemSelector',
 		'chooseModel',
 		'conferenceViewer',
 		'deleteSmartUser',
