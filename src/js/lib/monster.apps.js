@@ -364,6 +364,52 @@ define(function() {
 				return monster.util.getAuthToken(connectionName);
 			};
 
+			app.getStore = _.get(
+				app,
+				'getStore',
+				/**
+				 * Store getter
+				 * @param  {Array|String} [path]
+				 * @param  {*} [defaultValue]
+				 * @return {*}
+				 */
+				function getStore(path, defaultValue) {
+					var store = ['data', '_store'];
+					return _.get(
+						app,
+						_.isUndefined(path)
+							? store
+							: _.flatten([store, _.isString(path) ? path.split('.') : path]),
+						defaultValue
+					);
+				}
+			);
+
+			app.setStore = _.get(
+				app,
+				'setStore',
+				/**
+				 * Store setter
+				 * @param {Array|String} [path]
+				 * @param {*} [value]
+				 */
+				function setStore(path, value) {
+					var hasValue = _.toArray(arguments).length === 2,
+						store = ['data', '_store'],
+						resolvedPath = hasValue
+							? _.flatten([store, _.isString(path) ? path.split('.') : path])
+							: store;
+					_.set(
+						app,
+						resolvedPath,
+						hasValue ? value : path
+					);
+					if (!monster.isEnvironmentProd()) {
+						console.log('setStore(\'' + resolvedPath.slice(2).join('.') + '\')', hasValue ? value : path);
+					}
+				}
+			);
+
 			monster.apps[app.name] = app;
 
 			self.loadDependencies(app, function() {
