@@ -374,7 +374,7 @@ define(function() {
 				 * @return {*}
 				 */
 				function getStore(path, defaultValue) {
-					var store = ['data', '_store'];
+					var store = ['data', 'store'];
 					return _.get(
 						app,
 						_.isUndefined(path)
@@ -395,7 +395,7 @@ define(function() {
 				 */
 				function setStore(path, value) {
 					var hasValue = _.toArray(arguments).length === 2,
-						store = ['data', '_store'],
+						store = ['data', 'store'],
 						resolvedPath = hasValue
 							? _.flatten([store, _.isString(path) ? path.split('.') : path])
 							: store;
