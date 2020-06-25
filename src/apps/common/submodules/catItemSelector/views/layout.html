@@ -3,12 +3,12 @@
 		<div class="form-header">
 			<fieldset>
 				<legend>
-					{{i18n.catItemSelector.legends.categories}}
+					{{coalesce i18nCustom.categories i18n.catItemSelector.legends.categories}}
 				</legend>
 			</fieldset>
 			<fieldset>
 				<legend>
-					{{i18n.catItemSelector.legends.items}}
+					{{coalesce i18nCustom.items i18n.catItemSelector.legends.items}}
 				</legend>
 			</fieldset>
 		</div>
@@ -23,10 +23,10 @@
 				{{#if choices}}
 					<hr>
 				{{/if}}
-				{{#monsterRadio i18n.catItemSelector.newCategory.label}}
+				{{#monsterRadio (coalesce i18nCustom.newCategory i18n.catItemSelector.newCategory.label)}}
 					<input type="radio" name="categoryId" value="">
 				{{/monsterRadio}}
-				<input type="text" name="newCategoryId" class="span2" placeholder="{{i18n.catItemSelector.newCategory.placeholder}}" style="display: none;">
+				<input type="text" name="newCategoryId" class="span2" placeholder="{{coalesce i18nCustom.categoryName i18n.catItemSelector.newCategory.placeholder}}" style="display: none;">
 			{{/if}}
 			</fieldset>
 
@@ -39,10 +39,10 @@
 		</div>
 		<div class="form-actions">
 			<button type="button" class="monster-button-ghost js-cancel">
-				{{i18n.cancel}}
+				{{coalesce i18nCustom.cancel i18n.cancel}}
 			</button>
 			<button type="submit" class="monster-button-primary js-select" disabled="disabled">
-				{{i18n.select}}
+				{{coalesce i18nCustom.select i18n.select}}
 			</button>
 		</div>
 	</form>
@@ -57,11 +57,11 @@
 {{/each}}
 {{#if isEditable}}
 	{{#if items}}<hr>{{/if}}
-	{{#monsterRadio @root.i18n.catItemSelector.newItem.label}}
+	{{#monsterRadio (coalesce @root.i18nCustom.newItem @root.i18n.catItemSelector.newItem.label)}}
 		<input type="radio" name="itemId" value="">
 	{{/monsterRadio}}
 	<div class="control">
-		<input type="text" name="newItemId.{{id}}" class="span2" placeholder="{{@root.i18n.catItemSelector.newItem.placeholder}}" style="display: none;">
+		<input type="text" name="newItemId.{{id}}" class="span2" placeholder="{{coalesce @root.i18nCustom.itemName @root.i18n.catItemSelector.newItem.placeholder}}" style="display: none;">
 	</div>
 {{/if}}
 </div>

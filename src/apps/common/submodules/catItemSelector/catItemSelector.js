@@ -6,7 +6,7 @@ define(function() {
 
 		/**
 		 * @param  {Object} args
-		 * @param  {Object} args.choices
+		 * @param  {Object} [args.choices]
 		 * @param  {Object} [args.existing]
 		 * @param  {Boolean} [args.isEditable=false]
 		 * @param  {Object} [args.i18n]
@@ -17,20 +17,15 @@ define(function() {
 		 */
 		catItemSelectorRender: function(args) {
 			var self = this,
-				onSelect = args.onSelect,
-				onCancel = args.onCancel,
-				onClose = args.onClose,
-				choices = args.choices,
-				isEditable = _.get(args, 'isEditable', false),
-				existing = args.existing || _.transform(choices, function(object, catData) {
+				choices = _.get(args, 'choices', []),
+				isEditable = _.isEmpty(choices) ? true : _.get(args, 'isEditable', false),
+				existing = _.get(args, 'existing', _.transform(choices, function(object, catData) {
 					_.set(object, catData.id, _.map(catData.items, 'id'));
-				}, {}),
-				i18n = _.merge({
-					title: self.i18n.active().catItemSelector.title
-				}, _.get(args, 'i18n', {})),
+				}, {})),
 				$template = $(self.getTemplate({
 					name: 'layout',
 					data: {
+						i18nCustom: _.get(args, 'i18n', {}),
 						choices: choices,
 						isEditable: isEditable
 					},
@@ -38,16 +33,16 @@ define(function() {
 				})),
 				dialog = monster.ui.dialog($template, {
 					autoScroll: false,
-					title: i18n.title,
-					onClose: onClose
+					title: _.get(args, 'i18n.title', self.i18n.active().catItemSelector.title),
+					onClose: args.onClose
 				});
 
 			self.catItemSelectorBindEvents({
 				container: dialog,
 				existing: existing,
-				normalizer: _.get(args, 'normalized', _.snakeCase),
-				onSelect: onSelect,
-				onCancel: onCancel
+				normalizer: _.get(args, 'normalizer', _.snakeCase),
+				onSelect: args.onSelect,
+				onCancel: args.onCancel
 			});
 		},
 
@@ -117,7 +112,9 @@ define(function() {
 							$container.find('.sub-category-wrapper').hide();
 							$newItemInput.val('');
 						} else if (!$emptyCategoryWrapper.is(':visible')) {
-							$emptyCategoryWrapper.slideDown(100, $emptyCategoryWrapper.find('input[name="itemId"]').click);
+							$emptyCategoryWrapper.slideDown(100, function() {
+								$emptyCategoryWrapper.find('input[name="itemId"]').click();
+							});
 						}
 						monster.ui.valid($form);
 					}, 250));
