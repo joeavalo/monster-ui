@@ -267,8 +267,8 @@ define(function(require) {
 			}
 		},
 
-		css: function(href) {
-			$('<link/>', { rel: 'stylesheet', href: monster.util.cacheUrl(href) }).appendTo('head');
+		css: function(href, app) {
+			$('<link/>', { rel: 'stylesheet', href: monster.util.cacheUrl(href, app) }).appendTo('head');
 		},
 
 		domain: function() {
