@@ -1704,7 +1704,7 @@ define(function(require) {
 			.querySelectorAll('span,.number,.sub-cell,.element-title, .multi-line-div')
 			.forEach(replaceBoth);
 
-		if (!monster.isEnvironmentProd()) {
+		if (monster.isDev()) {
 			printLogs();
 		}
 	}
