@@ -474,42 +474,37 @@ define(function(require) {
 			next && next();
 		},
 
-		loadBuildConfig: function(globalCallback) {
+		loadBuildConfig: function(callback) {
 			var self = this;
 
 			monster.parallel({
-				version: function(callback) {
+				version: function(next) {
 					$.ajax({
 						url: 'VERSION',
 						cache: false,
-						success: function(version) {
-							version = version.replace(/\n.*/g, '').trim();
-
-							callback(null, version);
-						},
-						error: function() {
-							callback(null, null);
-						}
+						success: _.partial(_.ary(next, 2), null),
+						error: _.partial(_.unary(next), null)
 					});
 				},
-				buildFile: function(callback) {
+				buildFile: function(next) {
 					$.ajax({
 						url: 'build-config.json',
 						dataType: 'json',
 						cache: false,
-						success: function(config) {
-							callback(null, config);
-						},
-						error: function() {
-							callback(null, {});
-						}
+						success: _.partial(_.ary(next, 2), null),
+						error: _.partial(_.ary(next, 2), null, {})
 					});
 				}
 			}, function(err, results) {
 				monster.config.developerFlags.build = results.buildFile;
-				monster.config.developerFlags.build.version = results.version;
+				monster.config.developerFlags.build.version = _
+					.chain(results.version)
+					.thru(monster.parseVersionFile)
+					.get('version')
+					.defaultTo(null)
+					.value();
 
-				globalCallback && globalCallback(monster.config.developerFlags.build);
+				callback(null, monster.config.developerFlags.build);
 			});
 		},
 
@@ -856,8 +851,38 @@ define(function(require) {
 		_.set(monster.config.whitelabel, 'language', language);
 	}
 
+	/**
+	 * @param  {String} file String representation of VERSION file.
+	 * @return {Object|Undefined}
+	 */
+	function parseVersionFile(file) {
+		if (!_.isString(file)) {
+			return;
+		}
+		var values = _
+			.chain(file)
+			.split(/\n/gm)
+			.map(_.trim)
+			.reject(_.isEmpty)
+			.value();
+
+		return _
+			.chain([
+				'version',
+				'tag',
+				'hash',
+				'date',
+				'source'
+			])
+			.zip(values)
+			.keyBy(_.head)
+			.mapValues(_.last)
+			.value();
+	}
+
 	monster.defaultLanguage = defaultLanguage;
 	monster.initConfig = initConfig;
+	monster.parseVersionFile = parseVersionFile;
 	monster.setDefaultLanguage = setDefaultLanguage;
 	monster.supportedLanguages = supportedLanguages;
 
