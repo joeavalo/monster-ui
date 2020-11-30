@@ -9,93 +9,45 @@ import vinylPaths from 'vinyl-paths';
 import { app, tmp } from '../paths.js';
 import { env, getAppsToInclude, mode } from '../helpers/helpers.js';
 
-const pathsTemplates = {
+const config = {
 	whole: {
-		src: getAppsToInclude().reduce((acc, item) => acc.concat([
-			join(tmp, 'apps', item, 'views', '*.html'),
-			join(tmp, 'apps', item, 'submodules', '*', 'views', '*.html')
-		]), []),
-		dest: join(tmp, 'js'),
-		concatName: 'templates-compiled.js'
+		compile: {
+			src: getAppsToInclude().reduce((acc, item) => acc.concat([
+				join(tmp, 'apps', item, 'views', '*.html'),
+				join(tmp, 'apps', item, 'submodules', '*', 'views', '*.html')
+			]), []),
+			dest: join(tmp, 'js'),
+			output: 'templates-compiled.js'
+		},
+		concat: {
+			src: [
+				join(tmp, 'js', 'templates.js'),
+				join(tmp, 'js', 'templates-compiled.js')
+			],
+			output: 'templates.js',
+			dest: join(tmp, 'js')
+		}
 	},
 	app: {
-		src: [
-			join(app, 'views', '*.html'),
-			join(app, 'submodules', '*', 'views','*.html')
-		],
-		dest: join(app, 'views'),
-		concatName: 'templates.js'
+		compile: {
+			src: [
+				join(app, 'views', '*.html'),
+				join(app, 'submodules', '*', 'views','*.html')
+			],
+			dest: join(app, 'views'),
+			output: 'templates.js'
+		},
+		concat: {
+			src: [
+				join(app, 'app.js'),
+				join(join(app, 'views'), 'templates.js')
+			],
+			output: 'app.js',
+			dest: app
+		}
 	}
 };
-
-const compileTemplates = () => gulp
-	.src(pathsTemplates[mode].src)
-	.pipe(handlebars())
-	.pipe(wrap('Handlebars.template(<%= contents %>)'))
-	.pipe(declare({
-		namespace: 'monster.cache.templates',
-		noRedeclare: true,
-		processName: filePath => {
-			const splits = normalize(filePath).split(sep);
-			const indexSub = splits.indexOf('submodules');
-			let newName;
-			if (indexSub >= 0) {
-				newName = splits[splits.length - 5].concat(
-					'._',
-					splits[splits.length - 3],
-					'.',
-					splits[splits.length - 1]
-				);
-			} else {
-				newName = splits[splits.length - 3].concat(
-					'._main.',
-					splits[splits.length - 1]
-				);
-			}
-			return declare.processNameByPath(newName);
-		}
-	}))
-	.pipe(concat(pathsTemplates[mode].concatName))
-	.pipe(gulp.dest(pathsTemplates[mode].dest));
-
-const concatTemplatesApp = () => gulp
-	.src([
-		join(app, 'app.js'),
-		join(pathsTemplates.app.dest, pathsTemplates.app.concatName)
-	])
-	.pipe(concat('app.js'))
-	.pipe(gulp.dest(app));
-
-const concatTemplatesWhole = () => gulp
-	.src([
-		join(pathsTemplates.whole.dest, 'templates.js'),
-		join(pathsTemplates.whole.dest, pathsTemplates.whole.concatName)
-	])
-	.pipe(concat('templates.js'))
-	.pipe(gulp.dest(pathsTemplates.whole.dest));
-
-const cleanTemplates = () => gulp
-	.src([
-		...pathsTemplates[mode].src,
-		join(pathsTemplates[mode].dest, pathsTemplates[mode].concatName)
-	], {
-		read: false
-	})
-	.pipe(vinylPaths(del));
-
-/**
- * compileTemplates
- * concatTemplatesWhole
- * cleanTemplates
- *
- * Get all the apps .html files and pre-compile them with handlebars, then
- * append it to template.js
- */
-export const templates = gulp.series(
-	compileTemplates,
-	concatTemplatesWhole,
-	cleanTemplates
-);
+const context = config[mode];
 
 /**
  * compileTemplates
@@ -105,8 +57,57 @@ export const templates = gulp.series(
  * Gets all apps .html templates and pre-compile them with handlebars, then
  * append it to templates.js, also removes all the .html files from the folder
  */
-export const templatesApp = gulp.series(
+export const templates = gulp.series(
 	compileTemplates,
-	concatTemplatesApp,
+	concatTemplates,
 	cleanTemplates
 );
+
+function compileTemplates() {
+	const { src, output, dest } = context.compile;
+
+	return gulp
+		.src(src)
+		.pipe(handlebars())
+		.pipe(wrap('Handlebars.template(<%= contents %>)'))
+		.pipe(declare({
+			namespace: 'monster.cache.templates',
+			noRedeclare: true,
+			processName: filePath => {
+				const splits = normalize(filePath).split(sep);
+				const isSubmodule = splits.indexOf('submodules') > -1;
+				const appName = splits[splits.length - (isSubmodule ? 5 : 3)];
+				const moduleName = isSubmodule ? splits[splits.length - 3] : 'main';
+				const templateName = splits[splits.length - 1];
+				const newPath = [
+					appName,
+					'_' + moduleName,
+					templateName
+				].join('.');
+
+				return declare.processNameByPath(newPath);
+			}
+		}))
+		.pipe(concat(output))
+		.pipe(gulp.dest(dest));
+}
+function concatTemplates() {
+	const { src, output, dest } = context.concat;
+
+	return gulp
+		.src(src)
+		.pipe(concat(output))
+		.pipe(gulp.dest(dest));
+}
+function cleanTemplates() {
+	const { src, output, dest } = context.compile;
+
+	return gulp
+		.src([
+			...src,
+			join(dest, output)
+		], {
+			read: false
+		})
+		.pipe(vinylPaths(del));
+}
