@@ -553,20 +553,41 @@ define(function() {
 		_loadApp: function(name, mainCallback, pOptions) {
 			var self = this,
 				options = pOptions || {},
-				requireApp = _.partial(function(options, name, path, appPath, apiUrl, callback) {
-					require([path], function(app) {
+				metadata = monster.util.getAppStoreMetadata(name),
+				getNormalizedUrl = function(candidates) {
+					return _
+						.chain(candidates)
+						.find(_.isString)
+						.thru(monster.normalizeUrlPathEnding)
+						.value();
+				},
+				sourceUrl = getNormalizedUrl([
+					_.get(metadata, 'source_url'),
+					_.get(options, 'sourceUrl')
+				]),
+				hasExternalSourceConfigured = !_.isUndefined(sourceUrl),
+				pathToFolder = hasExternalSourceConfigured ? sourceUrl : 'apps/' + name,
+				moduleId = 'app-' + name,
+				pathToEntry = hasExternalSourceConfigured ? moduleId : pathToFolder + '/app',
+				apiUrl = getNormalizedUrl([
+					_.get(options, 'apiUrl'),
+					_.get(metadata, 'api_url'),
+					monster.config.api.default
+				]),
+				requireApp = _.partial(function(name, pathToFolder, pathToEntry, apiUrl, callback) {
+					require([pathToEntry], function(app) {
 						_.extend(app, {
-							appPath: appPath,
+							appPath: pathToFolder,
 							data: {}
 						}, monster.apps[name], {
-							apiUrl: _.get(options, 'apiUrl', apiUrl),
+							apiUrl: apiUrl,
 							// we don't want the name to be set by the js, instead we take the name supplied in the app.json
 							name: name
 						});
 
 						callback(null, app);
 					}, _.partial(callback, true));
-				}, options, name),
+				}, name, pathToFolder, pathToEntry, apiUrl),
 				maybeRetrieveBuildConfig = function maybeRetrieveBuildConfig(app, callback) {
 					if (!app.hasConfigFile) {
 						return callback(null, app, {});
@@ -592,14 +613,6 @@ define(function() {
 					}
 
 					callback(null, app);
-				},
-				loadApp = function loadApp(path, appPath, apiUrl, callback) {
-					monster.waterfall([
-						_.partial(requireApp, path, appPath, apiUrl),
-						maybeRetrieveBuildConfig,
-						applyConfig,
-						loadSubModules
-					], callback);
 				},
 				requireSubModule = function(app, subModule, callback) {
 					var pathSubModule = app.appPath + '/submodules/',
@@ -632,42 +645,30 @@ define(function() {
 						callback(err, app);
 					});
 				},
+				loadApp = function loadApp(callback) {
+					monster.waterfall([
+						requireApp,
+						maybeRetrieveBuildConfig,
+						applyConfig,
+						loadSubModules
+					], callback);
+				},
 				initializeApp = function initializeApp(app, callback) {
 					try {
 						app.load(_.partial(callback, null));
 					} catch (error) {
 						callback(error);
 					}
-				},
-				getUrl = function(obj, pathToUrl, defaultValue) {
-					return _
-						.chain(obj)
-						.get(pathToUrl, defaultValue)
-						.thru(monster.normalizeUrlPathEnding)
-						.value();
-				},
-				app = monster.util.getAppStoreMetadata(name),
-				appPath = 'apps/' + name,
-				customKey = 'app-' + name,
-				requirePaths = {},
-				externalUrl = getUrl(app, 'source_url', options.sourceUrl),
-				hasExternalUrlConfigured = !_.isUndefined(externalUrl),
-				apiUrl = getUrl(app, 'api_url', monster.config.api.default);
+				};
 
-			if (hasExternalUrlConfigured) {
-				appPath = externalUrl;
-
-				requirePaths[customKey] = externalUrl + '/app';
-
+			if (hasExternalSourceConfigured) {
 				require.config({
-					paths: requirePaths
+					paths: _.set({}, moduleId, sourceUrl + '/app')
 				});
 			}
 
-			var path = customKey in requirePaths ? customKey : appPath + '/app';
-
 			monster.waterfall([
-				_.partial(loadApp, path, appPath, apiUrl),
+				loadApp,
 				_.bind(self.monsterizeApp, self),
 				_.bind(self.loadDependencies, self),
 				initializeApp
