@@ -554,13 +554,10 @@ define(function() {
 			var self = this,
 				options = pOptions || {},
 				metadata = monster.util.getAppStoreMetadata(name),
-				getNormalizedUrl = function(candidates) {
-					return _
-						.chain(candidates)
-						.find(_.isString)
-						.thru(monster.normalizeUrlPathEnding)
-						.value();
-				},
+				getNormalizedUrl = _.flow(
+					_.partial(_.find, _, _.isString),
+					monster.normalizeUrlPathEnding
+				),
 				sourceUrl = getNormalizedUrl([
 					_.get(metadata, 'source_url'),
 					_.get(options, 'sourceUrl')
@@ -574,11 +571,13 @@ define(function() {
 					_.get(metadata, 'api_url'),
 					monster.config.api.default
 				]),
-				requireApp = _.partial(function(name, pathToFolder, pathToEntry, apiUrl, callback) {
+				requireApp = _.partial(function(name, pathToFolder, pathToEntry, apiUrl, version, callback) {
 					require([pathToEntry], function(app) {
 						_.extend(app, {
 							appPath: pathToFolder,
-							data: {}
+							data: {
+								version: version
+							}
 						}, monster.apps[name], {
 							apiUrl: apiUrl,
 							// we don't want the name to be set by the js, instead we take the name supplied in the app.json
@@ -645,8 +644,32 @@ define(function() {
 						callback(err, app);
 					});
 				},
+				loadVersion = _.partial(function(name, pathToFolder, callback) {
+					var success = _.partial(_.ary(callback, 2), null),
+						successWithStaticVersion = _.partial(success, _.toString(new Date().getTime()));
+
+					if (monster.isDev()) {
+						return successWithStaticVersion();
+					}
+					var preloadedApps = _.get(monster, 'config.developerFlags.build.preloadedApps', []),
+						successWithFrameworkVersion = _.partial(success, monster.util.getVersion());
+
+					if (_.includes(preloadedApps, name)) {
+						return successWithFrameworkVersion();
+					}
+					$.ajax({
+						url: pathToFolder + '/VERSION',
+						success: _.flow(
+							monster.parseVersionFile,
+							_.partial(_.get, _, 'version'),
+							success
+						),
+						error: successWithStaticVersion
+					});
+				}, name, pathToFolder),
 				loadApp = function loadApp(callback) {
 					monster.waterfall([
+						loadVersion,
 						requireApp,
 						maybeRetrieveBuildConfig,
 						applyConfig,
