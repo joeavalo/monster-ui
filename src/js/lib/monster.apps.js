@@ -580,26 +580,26 @@ define(function() {
 						error: _.partial(callback, null, app, {})
 					});
 				},
+				applyConfig = function(app, config, callback) {
+					app.buildConfig = config;
+
+					if (app.buildConfig.version === 'pro') {
+						if (!app.hasOwnProperty('subModules')) {
+							app.subModules = [];
+						}
+
+						app.subModules.push('pro');
+					}
+
+					callback(null, app);
+				},
 				loadApp = function loadApp(path, appPath, apiUrl, callback) {
 					monster.waterfall([
 						_.partial(requireApp, path, appPath, apiUrl),
-						maybeRetrieveBuildConfig
-					], function applyConfig(err, app, config) {
-						if (err) {
-							return callback(err);
-						}
-						app.buildConfig = config;
-
-						if (app.buildConfig.version === 'pro') {
-							if (!app.hasOwnProperty('subModules')) {
-								app.subModules = [];
-							}
-
-							app.subModules.push('pro');
-						}
-
-						callback(null, app);
-					});
+						maybeRetrieveBuildConfig,
+						applyConfig,
+						loadSubModules
+					], callback);
 				},
 				requireSubModule = function(app, subModule, callback) {
 					var pathSubModule = app.appPath + '/submodules/',
@@ -668,7 +668,6 @@ define(function() {
 
 			monster.waterfall([
 				_.partial(loadApp, path, appPath, apiUrl),
-				loadSubModules,
 				_.bind(self.monsterizeApp, self),
 				_.bind(self.loadDependencies, self),
 				initializeApp
